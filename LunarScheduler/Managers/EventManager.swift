@@ -23,7 +23,7 @@ class EventManager: ObservableObject {
     }
     
     // イベントを保存
-    private func saveEvents() {
+    func saveEvents() {
         if let encoded = try? JSONEncoder().encode(events) {
             UserDefaults.standard.set(encoded, forKey: "SavedEvents")
         }
@@ -34,6 +34,13 @@ class EventManager: ObservableObject {
         if let savedEvents = UserDefaults.standard.data(forKey: "SavedEvents"),
            let decodedEvents = try? JSONDecoder().decode([Event].self, from: savedEvents) {
             events = decodedEvents
+        }
+    }
+    
+    func updateEvent(_ event: Event) {
+        if let index = events.firstIndex(where: { $0.id == event.id }) {
+            events[index] = event
+            saveEvents()
         }
     }
 }

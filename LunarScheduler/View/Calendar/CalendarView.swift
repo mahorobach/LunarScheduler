@@ -5,7 +5,12 @@ struct CalendarView: View {
     @StateObject private var groupManager = GroupManager()
     @State private var selectedDate = Date()
     @State private var showingAddEvent = false
+    @State private var showingEditEvent: Event?
     @State private var calendarType: CalendarType = .western
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+        
+        private let calendarExporter = CalendarExporter()
     
     var body: some View {
         NavigationStack {
@@ -24,7 +29,7 @@ struct CalendarView: View {
                     .padding()
                 
                 // 旧暦表示（固定）
-                HStack(spacing: 8) {  // VStackをHStackに変更し、適切な間隔を設定
+                HStack(spacing: 8) {
                     let lunarInfo = LunarCalendar.getLunarInfo(for: selectedDate)
                     Text(lunarInfo.yearDisplay)
                         .font(.subheadline)
@@ -36,24 +41,23 @@ struct CalendarView: View {
                 
                 // 選択された日付の行事一覧
                 List {
-                                    if filteredEvents().isEmpty {
-                                        Text("予定はありません")
-                                            .foregroundColor(.gray)
-                                            .padding()
-                                    } else {
-                                        ForEach(filteredEvents()) { event in
-                                            EventRowView(event: event) {
-                                                shareEvent(event)
-                                            }
-                                            .listRowBackground(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .fill(Color.gray.opacity(0.1))
-                                                    .padding(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
-                                            )
-                                        }
-                                    }
-                                }
-                                .listStyle(PlainListStyle()) // リストのスタイルを調整
+                    ForEach(filteredEvents()) { event in
+                        EventRowView(
+                            event: event,
+                            onShare: { shareEvent(event) },
+                            onEdit: { showingEditEvent = event },
+                            onDelete: { deleteEvent(event) },
+                            onExport: { exportEvent(event) }
+                        )
+                    }
+                    // アラート表示を追加
+                        .alert("カレンダー", isPresented: $showingAlert) {
+                            Button("OK") {}
+                        } message: {
+                            Text(alertMessage)
+                        }
+                }
+                .listStyle(PlainListStyle())
             }
             .navigationTitle(getNavigationTitle())
             .toolbar {
@@ -65,6 +69,13 @@ struct CalendarView: View {
             }
             .sheet(isPresented: $showingAddEvent) {
                 AddEventView(eventManager: eventManager, groupManager: groupManager)
+            }
+            .sheet(item: $showingEditEvent) { event in
+                EditEventView(
+                    event: event,
+                    eventManager: eventManager,
+                    groupManager: groupManager
+                )
             }
         }
         .onAppear {
@@ -89,21 +100,29 @@ struct CalendarView: View {
     }
     
     private func shareEvent(_ event: Event) {
-        let shareText = """
-            イベント: \(event.title)
-            日付: \(event.solarDate.formatted(date: .long, time: .omitted))
-            \(event.memo ?? "")
-            """
-        
-        let activityVC = UIActivityViewController(
-            activityItems: [shareText],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first,
-           let viewController = window.rootViewController {
-            viewController.present(activityVC, animated: true)
-        }
+        // 共有機能の実装
     }
+    
+    private func deleteEvent(_ event: Event) {
+        eventManager.events.removeAll { $0.id == event.id }
+        eventManager.saveEvents()
+    }
+    
+    // エクスポート機能を追加
+        private func exportEvent(_ event: Event) {
+            Task {
+                do {
+                    try await calendarExporter.exportEvent(event)
+                    await MainActor.run {
+                        alertMessage = "カレンダーに追加しました"
+                        showingAlert = true
+                    }
+                } catch {
+                    await MainActor.run {
+                        alertMessage = "カレンダーへの追加に失敗しました"
+                        showingAlert = true
+                    }
+                }
+            }
+        }
 }

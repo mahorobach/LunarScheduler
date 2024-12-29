@@ -1,22 +1,34 @@
 //
-//  AddEventVIew.swift
+//  EditEventView.swift
 //  LunarScheduler
 //
-//  Created by 赤尾浩史 on 2024/12/28.
+//  Created by 赤尾浩史 on 2024/12/29.
 //
 
 import SwiftUI
 
-struct AddEventView: View {
+struct EditEventView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var eventManager: EventManager
     @ObservedObject var groupManager: GroupManager
     
-    @State private var title = ""
-    @State private var selectedDate = Date()
-    @State private var memo = ""
-    @State private var sharingType: Event.SharingType = .private_
-    @State private var selectedGroupIds: Set<UUID> = []
+    let event: Event
+    @State private var title: String
+    @State private var selectedDate: Date
+    @State private var memo: String
+    @State private var sharingType: Event.SharingType
+    @State private var selectedGroupIds: Set<UUID>
+    
+    init(event: Event, eventManager: EventManager, groupManager: GroupManager) {
+        self.event = event
+        self.eventManager = eventManager
+        self.groupManager = groupManager
+        _title = State(initialValue: event.title)
+        _selectedDate = State(initialValue: event.solarDate)
+        _memo = State(initialValue: event.memo ?? "")
+        _sharingType = State(initialValue: event.sharingType)
+        _selectedGroupIds = State(initialValue: event.sharedGroupIds)
+    }
     
     var body: some View {
         NavigationView {
@@ -50,37 +62,30 @@ struct AddEventView: View {
                     }
                 }
             }
-            .navigationTitle("予定を追加")
+            .navigationTitle("予定を編集")
             .navigationBarItems(
                 leading: Button("キャンセル") {
                     dismiss()
                 },
                 trailing: Button("保存") {
-                    saveEvent()
+                    saveChanges()
                 }
                 .disabled(title.isEmpty)
             )
         }
     }
     
-    private func saveEvent() {
-        let newEvent = Event(
+    private func saveChanges() {
+        let updatedEvent = Event(
+            id: event.id,
             title: title,
             solarDate: selectedDate,
             memo: memo.isEmpty ? nil : memo,
             sharingType: sharingType,
-            sharedWith: selectedGroupIds
+            sharedGroupIds: selectedGroupIds
         )
         
-        eventManager.addEvent(newEvent)
-        
-        // グループに追加
-        if sharingType == .shared {
-            for groupId in selectedGroupIds {
-                groupManager.addEventToGroup(groupId: groupId, eventId: newEvent.id)
-            }
-        }
-        
+        eventManager.updateEvent(updatedEvent)
         dismiss()
     }
 }

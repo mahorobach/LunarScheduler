@@ -13,25 +13,25 @@ struct Event: Identifiable, Codable {
     var solarDate: Date
     var memo: String?
     var sharingType: SharingType
-    var sharedWith: Set<UUID>  // StringからUUIDに変更
+    var sharedGroupIds: Set<UUID>  // この行を追加
     
     enum SharingType: String, Codable {
         case private_   // 非公開
-        case shared     // 特定のユーザー/グループと共有
+        case shared     // グループと共有
         case public_    // 全体に公開
     }
     
-    init(id: UUID = UUID(), 
-         title: String, 
-         solarDate: Date, 
+    init(id: UUID = UUID(),
+         title: String,
+         solarDate: Date,
          memo: String? = nil,
          sharingType: SharingType = .private_,
-         sharedWith: Set<UUID> = []) {  // StringからUUIDに変更
+         sharedGroupIds: Set<UUID> = []) {
         self.id = id
         self.title = title
         self.solarDate = solarDate
         self.memo = memo
         self.sharingType = sharingType
-        self.sharedWith = sharedWith
+        self.sharedGroupIds = sharedGroupIds  // この行を追加
     }
 }
